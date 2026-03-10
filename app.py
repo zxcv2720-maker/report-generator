@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file, make_response
+from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 from docx import Document
 from docx.shared import Inches, Pt, Cm
@@ -7,6 +7,7 @@ import base64
 import io
 import os
 from datetime import datetime
+from urllib.parse import quote
 
 app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app)
@@ -141,8 +142,12 @@ def generate():
         doc.save(doc_stream)
         doc_stream.seek(0)
         
+        # Generate filename
+        filename = f'廢棄物清運報告_{client_name}.docx'
+        filename_encoded = quote(filename)
+        
         response = make_response(doc_stream.getvalue())
-        response.headers['Content-Disposition'] = f'attachment; filename=廢棄物清運報告_{client_name}.docx'
+        response.headers['Content-Disposition'] = f"attachment; filename*=UTF-8''{filename_encoded}"
         response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         return response
         
