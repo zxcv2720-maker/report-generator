@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>廢棄物清運報告產生器</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft JhengHei", sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+        h1 { text-align: center; color: #333; margin-bottom: 30px; }
+        h2 { color: #555; margin: 30px 0 15px; font-size: 1.3rem; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+        
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #444; }
+        input[type="text"], input[type="date"], input[type="number"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        input:focus { border-color: #667eea; outline: none; }
+        
+        .photo-item {
+            background: #f8f9fa;
+            border: 2px dashed #ddd;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .photo-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .photo-item input[type="text"] { flex: 1; margin-right: 10px; }
+        .photo-preview {
+            width: 200px;
+            height: 150px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            overflow: hidden;
+            margin: 10px auto;
+        }
+        .photo-preview img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .attachment-item {
+            background: #f8f9fa;
+            border: 2px dashed #ddd;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        .attachment-preview {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4); }
+        .btn-secondary { background: #6c757d; color: white; margin-right: 10px; }
+        .btn-danger { background: #dc3545; color: white; padding: 8px 15px; font-size: 0.9rem; }
+        .btn-success { background: #28a745; color: white; width: 100%; padding: 15px; font-size: 1.2rem; margin-top: 30px; }
+        
+        .buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+        .photo-count { text-align: center; color: #666; margin: 10px 0; }
+        
+        .note {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏭 廢棄物清運報告產生器</h1>
+        
+        <div class="note">
+            📋 說明：填寫完資料後點擊「產生Word檔」即可下載報告<br>
+            📷 照片尺寸預設：寬9.31cm x 高6.79cm
+        </div>
+        
+        <h2>📌 基本資料</h2>
+        <div class="form-group">
+            <label>客戶名稱</label>
+            <input type="text" id="clientName" placeholder="例如：豐康牧場">
+        </div>
+        <div class="form-group">
+            <label>執行日期</label>
+            <input type="date" id="executeDate">
+        </div>
+        <div class="form-group">
+            <label>重量 (kg)</label>
+            <input type="number" id="weight" placeholder="例如：132.9" step="0.1">
+        </div>
+        
+        <h2>📷 待報廢照片 (可新增多張)</h2>
+        <div class="photo-count">目前已新增 <span id="photoCount">0</span> 張照片</div>
+        <div id="photoList"></div>
+        <div class="buttons">
+            <button class="btn btn-secondary" onclick="addPhoto()">➕ 新增照片</button>
+        </div>
+        
+        <h2>📎 附件資料 (可新增多張)</h2>
+        <div class="photo-count">目前已新增 <span id="attachmentCount">0</span> 張附件</div>
+        <div id="attachmentList"></div>
+        <div class="buttons">
+            <button class="btn btn-secondary" onclick="addAttachment()">➕ 新增附件</button>
+        </div>
+        
+        <button class="btn btn-success" onclick="generateReport()">📄 產生Word檔 (.docx)</button>
+    </div>
+
+    <script>
+        let photoCount = 0;
+        let attachmentCount = 0;
+        
+        // Set default date to today
+        document.getElementById('executeDate').valueAsDate = new Date();
+        
+        function addPhoto() {
+            photoCount++;
+            const div = document.createElement('div');
+            div.className = 'photo-item';
+            div.id = `photo_${photoCount}`;
+            div.innerHTML = `
+                <div class="photo-item-header">
+                    <input type="text" id="photoDesc_${photoCount}" placeholder="請輸入照片描述，例如：待報廢品 - 室內儲物區">
+                    <button class="btn btn-danger" onclick="removePhoto(${photoCount})">🗑️ 刪除</button>
+                </div>
+                <input type="file" id="photoFile_${photoCount}" accept="image/*" onchange="previewPhoto(${photoCount})">
+                <div class="photo-preview" id="photoPreview_${photoCount}">
+                    <span style="color:#999">照片預覽</span>
+                </div>
+            `;
+            document.getElementById('photoList').appendChild(div);
+            updatePhotoCount();
+        }
+        
+        function removePhoto(id) {
+            document.getElementById(`photo_${id}`).remove();
+            updatePhotoCount();
+        }
+        
+        function updatePhotoCount() {
+            document.getElementById('photoCount').textContent = document.querySelectorAll('.photo-item').length;
+        }
+        
+        function previewPhoto(id) {
+            const file = document.getElementById(`photoFile_${id}`).files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById(`photoPreview_${id}`).innerHTML = 
+                        `<img src="${e.target.result}" alt="預覽">`;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        function addAttachment() {
+            attachmentCount++;
+            const div = document.createElement('div');
+            div.className = 'attachment-item';
+            div.id = `attachment_${attachmentCount}`;
+            div.innerHTML = `
+                <div class="photo-item-header">
+                    <input type="text" id="attachmentDesc_${attachmentCount}" placeholder="請輸入附件說明">
+                    <button class="btn btn-danger" onclick="removeAttachment(${attachmentCount})">🗑️ 刪除</button>
+                </div>
+                <input type="file" id="attachmentFile_${attachmentCount}" accept="image/*" onchange="previewAttachment(${attachmentCount})">
+                <div id="attachmentPreview_${attachmentCount}"></div>
+            `;
+            document.getElementById('attachmentList').appendChild(div);
+            updateAttachmentCount();
+        }
+        
+        function removeAttachment(id) {
+            document.getElementById(`attachment_${id}`).remove();
+            updateAttachmentCount();
+        }
+        
+        function updateAttachmentCount() {
+            document.getElementById('attachmentCount').textContent = document.querySelectorAll('.attachment-item').length;
+        }
+        
+        function previewAttachment(id) {
+            const file = document.getElementById(`attachmentFile_${id}`).files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById(`attachmentPreview_${id}`).innerHTML = 
+                        `<img src="${e.target.result}" class="attachment-preview" alt="預覽">`;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        async function generateReport() {
+            // Get form data
+            const clientName = document.getElementById('clientName').value;
+            const executeDate = document.getElementById('executeDate').value;
+            const weight = document.getElementById('weight').value;
+            
+            if (!clientName || !executeDate || !weight) {
+                alert('請填寫完整的基本資料！');
+                return;
+            }
+            
+            // Collect photos
+            const photos = [];
+            for (let i = 1; i <= photoCount; i++) {
+                const fileInput = document.getElementById(`photoFile_${i}`);
+                const descInput = document.getElementById(`photoDesc_${i}`);
+                if (fileInput && fileInput.files[0]) {
+                    const base64 = await fileToBase64(fileInput.files[0]);
+                    photos.push({
+                        description: descInput ? descInput.value : '',
+                        image: base64
+                    });
+                }
+            }
+            
+            // Collect attachments
+            const attachments = [];
+            for (let i = 1; i <= attachmentCount; i++) {
+                const fileInput = document.getElementById(`attachmentFile_${i}`);
+                const descInput = document.getElementById(`attachmentDesc_${i}`);
+                if (fileInput && fileInput.files[0]) {
+                    const base64 = await fileToBase64(fileInput.files[0]);
+                    attachments.push({
+                        description: descInput ? descInput.value : '',
+                        image: base64
+                    });
+                }
+            }
+            
+            // Prepare data for Python
+            const data = {
+                clientName,
+                executeDate,
+                weight,
+                photos,
+                attachments
+            };
+            
+            // Send to Python backend
+            const btn = document.querySelector('.btn-success');
+            btn.textContent = '🔄 產生中...';
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `廢棄物清運報告_${clientName}.docx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                    alert('✅ 報告產生成功！');
+                } else {
+                    alert('❌ 產生失敗，請稍後再試');
+                }
+            } catch (error) {
+                console.error(error);
+                alert('❌ 發生錯誤：' + error.message);
+            }
+            
+            btn.textContent = '📄 產生Word檔 (.docx)';
+            btn.disabled = false;
+        }
+        
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+    </script>
+</body>
+</html>
